@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Keyboa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from '../../store/taskStore';
-import { PROJECTS, MEMBERS } from '../../constants/data';
+import { useProjectStore } from '../../store/projectStore';
+import { MEMBERS } from '../../constants/data';
 import { Colors, Radius, Space, FontFamily } from '../../constants/tokens';
 import { sortTasks } from '../../lib/sort';
 import { todayD } from '../../lib/dates';
@@ -21,13 +22,14 @@ export default function ProjectDetail() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { tasks, toggleDone, addTask } = useTaskStore();
+  const { projects } = useProjectStore();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [text, setText] = useState('');
   const [showDone, setShowDone] = useState(false);
   const [activeCapture, setActiveCapture] = useState<'voice' | 'photo' | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const project = PROJECTS.find(p => p.id === id);
+  const project = projects.find(p => p.id === id);
   if (!project) return null;
 
   const today = todayD();

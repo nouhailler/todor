@@ -2,14 +2,15 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { addDays, todayD } from '../lib/dates';
-import { PROJECTS, SEED_TASKS } from '../constants/data';
+import { PROJECTS as SEED_PROJECTS, SEED_TASKS } from '../constants/data';
 import { nextDue } from '../lib/dates';
+import { getAllProjects } from './projectStore';
 import type { Task, RecurRule } from './types';
 
 const uid = () => 'x' + Math.random().toString(36).slice(2, 9);
 
 function patchMeta(t: Task): Task {
-  const p = PROJECTS.find(x => x.id === t.project);
+  const p = getAllProjects().find(x => x.id === t.project);
   if (!p) return t;
   return { ...t, color: p.color, emoji: p.emoji, projectName: p.name };
 }
@@ -19,7 +20,8 @@ function logHist(t: Task, action: string): Task {
 }
 
 export function hydrateNew(partial: Partial<Task>): Task {
-  const p = PROJECTS.find(x => x.id === partial.project) ?? PROJECTS[0];
+  const all = getAllProjects();
+  const p = all.find(x => x.id === partial.project) ?? all[0] ?? SEED_PROJECTS[0];
   return {
     id: uid(), text: '', notes: '', project: p.id, section: undefined, tags: [], priority: 0,
     done: false, archived: false, favorite: false,
@@ -35,7 +37,7 @@ export function hydrateNew(partial: Partial<Task>): Task {
 function hydrateSeed(): Task[] {
   const t0 = todayD();
   return SEED_TASKS.map((s: Record<string, unknown>) => {
-    const p = PROJECTS.find(x => x.id === s.project) ?? PROJECTS[0];
+    const p = SEED_PROJECTS.find(x => x.id === s.project) ?? SEED_PROJECTS[0];
     const created = s.createdOff != null ? addDays(t0, s.createdOff as number) : t0;
     const start   = s.startOff   != null ? addDays(t0, s.startOff   as number) : null;
     const due     = s.dueOff     != null ? addDays(t0, s.dueOff     as number) : null;

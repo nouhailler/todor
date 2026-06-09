@@ -3,13 +3,16 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTaskStore } from '../store/taskStore';
-import { PROJECTS, FOLDERS, TAGS, MEMBERS } from '../constants/data';
+import { useProjectStore } from '../store/projectStore';
+import { FOLDERS, TAGS, MEMBERS } from '../constants/data';
 import { Colors, Radius, Space, FontFamily } from '../constants/tokens';
 import { diffDays, todayD } from '../lib/dates';
 import { Progress } from '../components/ui/Progress';
 import { Avatar, AvatarStack } from '../components/ui/Avatar';
 import { TaskListRow } from '../components/tasks/TaskListRow';
 import { TaskDetailSheet } from '../components/tasks/TaskDetailSheet';
+import { NewProjectSheet } from '../components/capture/NewProjectSheet';
+import { Toast } from '../components/ui/Toast';
 import type { Task } from '../store/types';
 
 function greetWord() {
@@ -28,7 +31,10 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { tasks, toggleDone } = useTaskStore();
+  const { projects, addProject } = useProjectStore();
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [newProjOpen, setNewProjOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const today = todayD();
   const live = tasks.filter(t => !t.archived);
@@ -65,7 +71,7 @@ export default function HomeScreen() {
               <Text style={styles.summaryCount}>
                 {totalDone}<Text style={styles.summaryTotal}> / {totalAll}</Text>
               </Text>
-              <Text style={styles.summarySub}>{PROJECTS.length} projets · {live.filter(t => !t.done).length} en cours</Text>
+              <Text style={styles.summarySub}>{projects.length} projets · {live.filter(t => !t.done).length} en cours</Text>
             </View>
             <View style={styles.ringWrap}>
               <Text style={styles.ringPct}>{pct}%</Text>
@@ -127,7 +133,7 @@ export default function HomeScreen() {
 
         {/* Folders + Projects */}
         {FOLDERS.map(folder => {
-          const folderProjects = PROJECTS.filter(p => p.folder === folder.id);
+          const folderProjects = projects.filter(p => p.folder === folder.id);
           return (
             <View key={folder.id} style={styles.section}>
               <View style={styles.folderHeader}>
@@ -179,13 +185,28 @@ export default function HomeScreen() {
 
         {/* New project button */}
         <View style={{ paddingHorizontal: Space.md, paddingBottom: 26, marginTop: 4 }}>
-          <TouchableOpacity style={styles.newProjBtn} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => setNewProjOpen(true)}
+            style={styles.newProjBtn}
+            activeOpacity={0.7}
+          >
             <Text style={styles.newProjText}>+ Nouveau projet ou liste</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
       <TaskDetailSheet task={selectedTask} onClose={() => setSelectedTask(null)} />
+
+      <NewProjectSheet
+        open={newProjOpen}
+        onClose={() => setNewProjOpen(false)}
+        onConfirm={(partial) => {
+          addProject(partial);
+          setNewProjOpen(false);
+          setToast(`${partial.emoji} ${partial.name} créé${partial.kind === 'project' ? '' : 'e'}`);
+        }}
+      />
+      <Toast message={toast} onHide={() => setToast(null)} />
     </View>
   );
 }

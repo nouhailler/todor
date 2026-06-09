@@ -1,7 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { todayD, startOfDay, addDays } from './dates';
-import { PROJECTS, TAGS } from '../constants/data';
+import { TAGS } from '../constants/data';
+import { getAllProjects } from '../store/projectStore';
 import type { Task } from '../store/types';
 
 function isoDate(d: Date): string {
@@ -95,7 +96,8 @@ export function parseImport(text: string): { ok: boolean; tasks?: Task[]; error?
   if (!Array.isArray(data)) return { ok: false, error: 'Le JSON doit être un tableau de tâches.' };
 
   const tasks: Task[] = data.map((raw: Record<string, unknown>) => {
-    const proj = PROJECTS.find(p => p.id === raw.project || p.name === raw.project) ?? PROJECTS[0];
+    const all = getAllProjects();
+    const proj = all.find(p => p.id === raw.project || p.name === raw.project) ?? all[0];
     const due  = parseDueToken(raw.due);
     return {
       id: 'x' + Math.random().toString(36).slice(2, 9),
