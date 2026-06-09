@@ -56,9 +56,10 @@ export function Sheet({ open, onClose, children, dark = false }: Props) {
   return (
     <Modal visible={mounted} transparent animationType="none" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Animated.View style={[styles.scrim, scrimStyle]}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} activeOpacity={1} />
-        </Animated.View>
+        {/* Scrim — purely visual, pointerEvents none so it never blocks the panel */}
+        <Animated.View style={[styles.scrim, scrimStyle]} pointerEvents="none" />
+        {/* Tap-to-close zone — only fills the space above the panel */}
+        <TouchableOpacity style={{ flex: 1 }} onPress={onClose} activeOpacity={1} />
         <Animated.View
           style={[
             styles.panel,

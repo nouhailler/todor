@@ -64,13 +64,13 @@ export function NewProjectSheet({ open, onClose, onConfirm }: Props) {
     <Sheet open={open} onClose={onClose}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Nouveau {kind === 'list' ? 'liste' : 'projet'}</Text>
+        <Text style={styles.title}>{kind === 'list' ? 'Nouvelle liste' : 'Nouveau projet'}</Text>
         <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
           <Text style={{ fontSize: 18, color: Colors.ink2 }}>✕</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 0 }}>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 0 }} keyboardShouldPersistTaps="handled">
 
         {/* Kind toggle */}
         <View style={styles.kindRow}>
@@ -104,7 +104,6 @@ export function NewProjectSheet({ open, onClose, onConfirm }: Props) {
               placeholder={kind === 'list' ? 'Ex. Courses du week-end' : 'Ex. Rénovation cuisine'}
               placeholderTextColor={Colors.faint}
               style={styles.nameInput}
-              autoFocus={false}
               returnKeyType="done"
             />
           </View>
