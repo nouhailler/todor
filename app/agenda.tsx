@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTaskStore } from '../store/taskStore';
-import { Colors, Radius, Space } from '../constants/tokens';
+import { Colors, Radius, Space, FontFamily } from '../constants/tokens';
 import { todayD, diffDays, monthGrid, MONTHS, DOW_HEAD, fmtDate } from '../lib/dates';
 import { DueBadge } from '../components/ui/DueBadge';
 import { dueStatus } from '../lib/dates';
@@ -140,7 +140,7 @@ function groupByDate(tasks: Task[], today: Date): { label: string; items: Task[]
 const styles = StyleSheet.create({
   screen:     { flex: 1 },
   titleRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  title:      { fontSize: 30, fontWeight: '800', color: Colors.ink },
+  title:      { fontSize: 30, fontFamily: FontFamily.heading, color: Colors.ink },
   viewToggle: { flexDirection: 'row', backgroundColor: Colors.surface2, borderRadius: 11, padding: 3, gap: 3 },
   viewBtn:    { width: 38, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   viewBtnActive: { backgroundColor: Colors.surface },

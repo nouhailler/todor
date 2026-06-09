@@ -1,3 +1,5 @@
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { todayD, startOfDay, addDays } from './dates';
 import { PROJECTS, TAGS } from '../constants/data';
 import type { Task } from '../store/types';
@@ -41,6 +43,49 @@ export function exportCSV(tasks: Task[]): string {
     t.assignee ?? '',
   ].map(esc).join(','));
   return [head.map(esc).join(','), ...rows].join('\n');
+}
+
+export async function exportPDF(tasks: Task[]): Promise<void> {
+  const PRIO_LABEL: Record<number, string> = { 0: '—', 1: 'Très faible', 2: 'Faible', 3: 'Normale', 4: 'Élevée', 5: 'Critique' };
+  const active = tasks.filter(t => !t.archived);
+  const done   = active.filter(t => t.done).length;
+
+  const rows = active.map(t => `
+    <tr>
+      <td>${t.text}</td>
+      <td>${t.projectName}</td>
+      <td>${PRIO_LABEL[t.priority] ?? '—'}</td>
+      <td>${t.due ? isoDate(t.due) : '—'}</td>
+      <td style="color:${t.done ? '#1B9A5C' : '#8C897D'}">${t.done ? '✓ Terminée' : 'En cours'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { font-family: -apple-system, Helvetica, sans-serif; color: #1B1A15; margin: 32px; }
+  h1   { font-size: 26px; font-weight: 800; color: #1B1A15; margin-bottom: 4px; }
+  p    { color: #8C897D; font-size: 13px; margin-top: 0; }
+  table{ width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th   { background: #F4F2EC; font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+         padding: 9px 12px; text-align: left; color: #8C897D; }
+  td   { padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #ECE9E1; }
+  tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+  <h1>todor · Tâches</h1>
+  <p>${active.length} tâches · ${done} terminées · Exporté le ${isoDate(new Date())}</p>
+  <table>
+    <thead><tr><th>Tâche</th><th>Projet</th><th>Priorité</th><th>Échéance</th><th>Statut</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const { uri } = await Print.printToFileAsync({ html });
+  await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Exporter les tâches' });
 }
 
 export function parseImport(text: string): { ok: boolean; tasks?: Task[]; error?: string } {

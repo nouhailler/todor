@@ -1,6 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
-import { Colors } from '../../constants/tokens';
+import { useTheme } from '../../context/ThemeContext';
 
 type BtnKind = 'primary' | 'dark' | 'soft' | 'ghost' | 'outline';
 type BtnSize = 'sm' | 'md' | 'lg';
@@ -15,22 +15,25 @@ interface Props {
 }
 
 const SIZES = {
-  sm: { height: 38, fontSize: 14, paddingHorizontal: 14 },
+  sm: { height: 38, fontSize: 14,   paddingHorizontal: 14 },
   md: { height: 48, fontSize: 15.5, paddingHorizontal: 18 },
   lg: { height: 54, fontSize: 16.5, paddingHorizontal: 22 },
 };
 
-const KINDS: Record<BtnKind, { backgroundColor: string; color: string; borderWidth?: number; borderColor?: string }> = {
-  primary: { backgroundColor: Colors.accent,     color: '#fff' },
-  dark:    { backgroundColor: Colors.ink,         color: '#fff' },
-  soft:    { backgroundColor: Colors.accentSoft,  color: Colors.accentInk },
-  ghost:   { backgroundColor: Colors.surface2,    color: Colors.ink },
-  outline: { backgroundColor: 'transparent',      color: Colors.ink, borderWidth: 1.5, borderColor: Colors.lineStrong },
-};
-
 export function Btn({ children, onPress, kind = 'primary', size = 'md', style, disabled }: Props) {
+  const colors = useTheme();
   const s = SIZES[size];
-  const k = KINDS[kind];
+
+  const kindStyles: Record<BtnKind, { bg: string; color: string; borderWidth?: number; borderColor?: string }> = {
+    primary: { bg: colors.accent,    color: '#fff' },
+    dark:    { bg: colors.ink,       color: '#fff' },
+    soft:    { bg: colors.accentSoft, color: colors.accentInk },
+    ghost:   { bg: colors.surface2,  color: colors.ink },
+    outline: { bg: 'transparent',    color: colors.ink, borderWidth: 1.5, borderColor: colors.lineStrong },
+  };
+
+  const k = kindStyles[kind];
+
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -38,9 +41,14 @@ export function Btn({ children, onPress, kind = 'primary', size = 'md', style, d
       activeOpacity={0.8}
       style={[
         styles.base,
-        { height: s.height, paddingHorizontal: s.paddingHorizontal, backgroundColor: k.backgroundColor,
-          borderWidth: k.borderWidth ?? 0, borderColor: k.borderColor ?? 'transparent',
-          opacity: disabled ? 0.5 : 1 },
+        {
+          height: s.height,
+          paddingHorizontal: s.paddingHorizontal,
+          backgroundColor: k.bg,
+          borderWidth: k.borderWidth ?? 0,
+          borderColor: k.borderColor ?? 'transparent',
+          opacity: disabled ? 0.5 : 1,
+        },
         style,
       ]}
     >

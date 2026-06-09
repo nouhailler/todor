@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTaskStore } from '../store/taskStore';
-import { Colors, Radius, Space } from '../constants/tokens';
+import { Colors, Radius, Space, FontFamily } from '../constants/tokens';
 
 const AI_SUGGESTIONS = [
   "Qu'est-ce qu'il me manque pour une raclette ?",
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   screen:   { flex: 1 },
   header:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: Space.lg, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.appBg },
   headerIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 21, fontWeight: '800', color: Colors.ink },
+  headerTitle: { fontSize: 21, fontFamily: FontFamily.heading, color: Colors.ink },
   headerSub:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerSubText: { fontSize: 12.5, color: Colors.muted, fontWeight: '600' },
   onlineDot: { width: 7, height: 7, borderRadius: 99, backgroundColor: Colors.accent },

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTaskStore } from '../../store/taskStore';
 import { PROJECTS, MEMBERS } from '../../constants/data';
-import { Colors, Radius, Space } from '../../constants/tokens';
+import { Colors, Radius, Space, FontFamily } from '../../constants/tokens';
 import { sortTasks } from '../../lib/sort';
 import { todayD } from '../../lib/dates';
 import { Progress } from '../../components/ui/Progress';
@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   navTitle:    { fontSize: 16, fontWeight: '700', color: Colors.ink, flex: 1, textAlign: 'center' },
   projInfo:    { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 12 },
   emojiBox:    { width: 44, height: 44, borderRadius: 13, backgroundColor: Colors.surface2, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  projName:    { fontSize: 22, fontWeight: '800', color: Colors.ink },
+  projName:    { fontSize: 22, fontFamily: FontFamily.heading, color: Colors.ink },
   projMembers: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   projMembersText: { fontSize: 12.5, color: Colors.muted },
 

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useTaskStore } from '../store/taskStore';
 import { PROJECTS, TAGS, MEMBERS, PRIORITIES } from '../constants/data';
-import { Colors, Radius, Space } from '../constants/tokens';
+import { Colors, Radius, Space, FontFamily } from '../constants/tokens';
 import { filterTasks, sortTasks } from '../lib/sort';
 import { TaskListRow } from '../components/tasks/TaskListRow';
 import { TaskCard } from '../components/tasks/TaskCard';
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   screen:   { flex: 1 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   eyebrow:  { fontSize: 12, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5, textTransform: 'uppercase' },
-  title:    { fontSize: 30, fontWeight: '800', color: Colors.ink, letterSpacing: -0.5 },
+  title:    { fontSize: 30, fontFamily: FontFamily.heading, color: Colors.ink, letterSpacing: -0.5 },
 
   viewToggle:  { flexDirection: 'row', backgroundColor: Colors.surface2, borderRadius: 11, padding: 3, gap: 3 },
   viewBtn:     { width: 38, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },

@@ -1,4 +1,4 @@
-export const Colors = {
+const BASE = {
   bg:          '#F4F2EC',
   appBg:       '#FBFAF6',
   surface:     '#FFFFFF',
@@ -9,11 +9,6 @@ export const Colors = {
   ink2:        '#56554B',
   muted:       '#8C897D',
   faint:       '#B6B2A6',
-  accent:      '#1B9A5C',
-  accentPress: '#157B49',
-  accentInk:   '#0C5733',
-  accentSoft:  '#E6F4EC',
-  accentSoft2: '#D6EEDF',
   danger:      '#D6493F',
   dangerSoft:  '#FBEAE8',
   dangerInk:   '#99291F',
@@ -27,9 +22,6 @@ export const Colors = {
   plum:        '#7C6CD0',
 };
 
-export const Radius = { sm: 12, md: 18, lg: 24, xl: 30, pill: 99 };
-export const Space  = { xs: 8, sm: 12, md: 16, lg: 22 };
-
 export const PALETTES = {
   Sprout: { accent: '#1B9A5C', press: '#157B49', ink: '#0C5733', soft: '#E6F4EC', soft2: '#D6EEDF' },
   Tomate: { accent: '#E2674A', press: '#C8503A', ink: '#8F3422', soft: '#FBEAE5', soft2: '#F6D8CF' },
@@ -38,3 +30,29 @@ export const PALETTES = {
 };
 
 export type PaletteName = keyof typeof PALETTES;
+
+export function buildColors(palette: PaletteName) {
+  const p = PALETTES[palette];
+  return {
+    ...BASE,
+    accent:      p.accent,
+    accentPress: p.press,
+    accentInk:   p.ink,
+    accentSoft:  p.soft,
+    accentSoft2: p.soft2,
+  };
+}
+
+export const Colors = buildColors('Sprout');
+
+export const Radius = { sm: 12, md: 18, lg: 24, xl: 30, pill: 99 };
+export const Space  = { xs: 8, sm: 12, md: 16, lg: 22 };
+
+export const FontFamily = {
+  heading:    'BricolageGrotesque-ExtraBold',
+  headingBold:'BricolageGrotesque-Bold',
+  body:       'HankenGrotesk-Regular',
+  bodyMedium: 'HankenGrotesk-Medium',
+  bodySemi:   'HankenGrotesk-SemiBold',
+  bodyBold:   'HankenGrotesk-Bold',
+};

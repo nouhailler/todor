@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput,
-  StyleSheet, Switch as RNSwitch, Modal, Alert, Animated,
+  StyleSheet, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTaskStore } from '../store/taskStore';
-import { Colors, Radius, Space, PALETTES } from '../constants/tokens';
+import { useSettingsStore } from '../store/settingsStore';
+import { Colors, Radius, Space, PALETTES, FontFamily } from '../constants/tokens';
 import type { PaletteName } from '../constants/tokens';
-import { exportJSON, exportCSV, parseImport } from '../lib/importExport';
+import { exportJSON, exportCSV, exportPDF, parseImport } from '../lib/importExport';
 import { MEMBERS } from '../constants/data';
 import { AI_JSON_SAMPLE } from '../constants/data';
 import { Avatar } from '../components/ui/Avatar';
@@ -133,10 +134,10 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { tasks } = useTaskStore();
 
+  const { palette, setPalette } = useSettingsStore();
   const [notif, setNotif] = useState({ push: true, email: true, overdue: true, digest: true, multiple: true });
   const [autoSync, setAutoSync] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [palette, setPalette] = useState<PaletteName>('Sprout');
   const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -157,6 +158,14 @@ export default function SettingsScreen() {
     const csv = exportCSV(tasks);
     Alert.alert('Export CSV', csv.split('\n').slice(0, 4).join('\n') + '\n…');
     setToast('Export CSV prêt');
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      await exportPDF(tasks);
+    } catch {
+      Alert.alert('Erreur', 'Impossible de générer le PDF.');
+    }
   };
 
   return (
@@ -231,6 +240,7 @@ export default function SettingsScreen() {
           <SettingRow emoji="✨" iconBg={Colors.accent} title="Importer des tâches" sub="Coller du JSON (généré par Claude)" onPress={() => setImportOpen(true)} />
           <SettingRow emoji="📤" iconBg={Colors.sky} title="Exporter en JSON" sub="Toutes les tâches actives" onPress={handleExportJSON} />
           <SettingRow emoji="📊" iconBg={Colors.berry} title="Exporter en CSV" sub="Pour Excel / Sheets" onPress={handleExportCSV} />
+          <SettingRow emoji="📄" iconBg={Colors.danger} title="Exporter en PDF" sub="Fichier partageable" onPress={handleExportPDF} />
           <SettingRow emoji="📦" iconBg={Colors.ink} title="Archivées" sub={`${tasks.filter(t => t.archived).length} tâches archivées`} last />
         </Section>
 
@@ -246,7 +256,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   screen:   { flex: 1 },
   eyebrow:  { fontSize: 11, fontWeight: '700', color: Colors.muted, letterSpacing: 0.8, textTransform: 'uppercase' },
-  title:    { fontSize: 30, fontWeight: '800', color: Colors.ink, marginTop: 4 },
+  title:    { fontSize: 30, fontFamily: FontFamily.heading, color: Colors.ink, marginTop: 4 },
 
   section:     { paddingHorizontal: Space.md, marginTop: 18 },
   sectionTitle:{ fontSize: 11, fontWeight: '700', color: Colors.muted, letterSpacing: 0.8, marginBottom: 8, paddingLeft: 4 },

@@ -1,6 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle,
+  withSequence, withTiming, Easing,
+} from 'react-native-reanimated';
 import { Colors } from '../../constants/tokens';
+import { useTheme } from '../../context/ThemeContext';
 import { DueBadge } from '../ui/DueBadge';
 import { PriorityBar } from '../ui/PriorityBar';
 import { Avatar } from '../ui/Avatar';
@@ -17,28 +22,49 @@ interface Props {
 }
 
 export function TaskListRow({ task, onToggle, onOpen, showProject = true, last }: Props) {
+  const colors = useTheme();
   const today = todayD();
   const status = (task.due || task.done) ? dueStatus(task.due, task.done, today) : null;
   const priorityColor = PRIORITIES[task.priority]?.color;
 
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (task.done) {
+      scale.value = withSequence(
+        withTiming(0.75, { duration: 60,  easing: Easing.in(Easing.quad) }),
+        withTiming(1.2,  { duration: 130, easing: Easing.out(Easing.back(2)) }),
+        withTiming(1,    { duration: 90,  easing: Easing.in(Easing.quad) }),
+      );
+    }
+  }, [task.done]);
+
+  const checkAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handleToggle = () => onToggle(task.id);
+
   return (
     <View style={[styles.row, !last && styles.border]}>
       <PriorityBar priority={task.priority} />
-      <TouchableOpacity
-        onPress={() => onToggle(task.id)}
-        activeOpacity={0.7}
-        style={[styles.checkbox, task.done && { backgroundColor: Colors.accent, borderWidth: 0 }]}
-      >
-        {task.done && <Text style={styles.checkmark}>✓</Text>}
+      <TouchableOpacity onPress={handleToggle} activeOpacity={0.7}>
+        <Animated.View
+          style={[
+            styles.checkbox,
+            { borderColor: colors.lineStrong },
+            task.done && { backgroundColor: colors.accent, borderWidth: 0 },
+            checkAnimStyle,
+          ]}
+        >
+          {task.done && <Text style={styles.checkmark}>✓</Text>}
+        </Animated.View>
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => onOpen(task)} style={styles.content} activeOpacity={0.7}>
         <View style={styles.titleRow}>
           {task.priority >= 4 && <Text style={[styles.flag, { color: priorityColor }]}>⚑ </Text>}
-          <Text
-            style={[styles.title, task.done && styles.titleDone]}
-            numberOfLines={1}
-          >
+          <Text style={[styles.title, task.done && styles.titleDone]} numberOfLines={1}>
             {task.text}
           </Text>
           {task.favorite && <Text style={styles.flame}> 🔥</Text>}
@@ -50,9 +76,7 @@ export function TaskListRow({ task, onToggle, onOpen, showProject = true, last }
               <Text style={styles.projectName}>{task.projectName}</Text>
             </View>
           )}
-          {task.recur && (
-            <Text style={styles.metaText}>↻ {task.recur.label}</Text>
-          )}
+          {task.recur && <Text style={styles.metaText}>↻ {task.recur.label}</Text>}
           {task.comments && task.comments.length > 0 && (
             <Text style={styles.metaText}>💬 {task.comments.length}</Text>
           )}
@@ -72,20 +96,20 @@ export function TaskListRow({ task, onToggle, onOpen, showProject = true, last }
 }
 
 const styles = StyleSheet.create({
-  row:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, position: 'relative', gap: 12 },
-  border:      { borderBottomWidth: 1, borderBottomColor: Colors.line },
-  checkbox:    { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: Colors.lineStrong, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
-  checkmark:   { color: '#fff', fontSize: 13, fontWeight: '700' },
-  content:     { flex: 1, gap: 4, minWidth: 0 },
-  titleRow:    { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  title:       { fontSize: 15, fontWeight: '500', color: Colors.ink, flex: 1 },
-  titleDone:   { color: Colors.faint, textDecorationLine: 'line-through' },
-  flag:        { fontSize: 12, fontWeight: '700', flexShrink: 0 },
-  flame:       { fontSize: 11, flexShrink: 0 },
-  metaRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
-  projectBadge:{ flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dot:         { width: 7, height: 7, borderRadius: 99 },
-  projectName: { fontSize: 12, color: Colors.muted, fontWeight: '600' },
-  metaText:    { fontSize: 11.5, color: Colors.faint, fontWeight: '600' },
-  right:       { alignItems: 'flex-end', flexShrink: 0, gap: 4 },
+  row:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, position: 'relative', gap: 12 },
+  border:       { borderBottomWidth: 1, borderBottomColor: Colors.line },
+  checkbox:     { width: 24, height: 24, borderRadius: 8, borderWidth: 2, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
+  checkmark:    { color: '#fff', fontSize: 13, fontWeight: '700' },
+  content:      { flex: 1, gap: 4, minWidth: 0 },
+  titleRow:     { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
+  title:        { fontSize: 15, fontWeight: '500', color: Colors.ink, flex: 1 },
+  titleDone:    { color: Colors.faint, textDecorationLine: 'line-through' },
+  flag:         { fontSize: 12, fontWeight: '700', flexShrink: 0 },
+  flame:        { fontSize: 11, flexShrink: 0 },
+  metaRow:      { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
+  projectBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  dot:          { width: 7, height: 7, borderRadius: 99 },
+  projectName:  { fontSize: 12, color: Colors.muted, fontWeight: '600' },
+  metaText:     { fontSize: 11.5, color: Colors.faint, fontWeight: '600' },
+  right:        { alignItems: 'flex-end', flexShrink: 0, gap: 4 },
 });

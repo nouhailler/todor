@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTaskStore } from '../store/taskStore';
 import { PROJECTS, FOLDERS, TAGS, MEMBERS } from '../constants/data';
-import { Colors, Radius, Space } from '../constants/tokens';
+import { Colors, Radius, Space, FontFamily } from '../constants/tokens';
 import { diffDays, todayD } from '../lib/dates';
 import { Progress } from '../components/ui/Progress';
 import { Avatar, AvatarStack } from '../components/ui/Avatar';
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   headerRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 22, paddingBottom: 4 },
   headerRight: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   eyebrow:     { fontSize: 12, fontWeight: '700', color: Colors.muted, letterSpacing: 0.5, textTransform: 'uppercase' },
-  title:       { fontSize: 32, fontWeight: '800', color: Colors.ink, letterSpacing: -0.5 },
+  title:       { fontSize: 32, fontFamily: FontFamily.heading, color: Colors.ink, letterSpacing: -0.5 },
 
   summaryCard:  { marginHorizontal: Space.md, marginTop: 14, borderRadius: Radius.lg, padding: 18 },
   summaryTop:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
