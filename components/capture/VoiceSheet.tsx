@@ -1,9 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated } from 'react-native';
 import { Sheet } from '../ui/Sheet';
 import { Btn } from '../ui/Btn';
 import { Colors, Radius, Space } from '../../constants/tokens';
+import { parseDictation, type ParsedItem } from '../../lib/dictation';
+import { speechSupported, startDictation, type DictationHandle } from '../../lib/speech';
 
+export type { ParsedItem };
+
+// Script de démo utilisé quand la reconnaissance vocale n'est pas disponible
+// (mobile natif sans development build).
 const VOICE_SCRIPT = {
   heard: "Ajoute six œufs et une plaquette de beurre, et rappelle-moi de réserver le resto vendredi soir",
   parsed: [
@@ -14,8 +20,6 @@ const VOICE_SCRIPT = {
 };
 
 type Phase = 'listening' | 'thinking' | 'result';
-
-export interface ParsedItem { id: string; text: string; cat: string; kind: 'item' | 'task'; meta?: string }
 
 interface Props {
   open: boolean;
@@ -69,17 +73,89 @@ function ThinkingDots() {
   );
 }
 
+const ERROR_MESSAGES: Record<string, string> = {
+  'not-allowed':        'Accès au micro refusé — autorise-le dans ton navigateur.',
+  'service-not-allowed': 'Accès au micro refusé — autorise-le dans ton navigateur.',
+  'audio-capture':      'Aucun micro détecté.',
+  'network':            'Reconnaissance vocale indisponible (réseau).',
+  'no-speech':          "Je n'ai rien entendu — réessaie.",
+};
+
 export function VoiceSheet({ open, onClose, onConfirm }: Props) {
+  const live = speechSupported();
+
   const [phase, setPhase] = useState<Phase>('listening');
   const [typed, setTyped] = useState('');
+  const [interim, setInterim] = useState('');
+  const [items, setItems] = useState<ParsedItem[]>([]);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRef = useRef<DictationHandle | null>(null);
+  const heardRef = useRef('');
+  const interimRef = useRef('');
+  const doneRef = useRef(false);
+
+  const finishListening = useCallback(() => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    handleRef.current?.cancel();
+    handleRef.current = null;
+    // récupère aussi le segment provisoire si on coupe en pleine phrase
+    heardRef.current = `${heardRef.current} ${interimRef.current}`.trim();
+    interimRef.current = '';
+    if (!heardRef.current.trim()) {
+      doneRef.current = false;
+      setError(ERROR_MESSAGES['no-speech']);
+      return;
+    }
+    setPhase('thinking');
+  }, []);
+
+  const startListening = useCallback(() => {
+    setError(null);
+    setTyped('');
+    setInterim('');
+    heardRef.current = '';
+    interimRef.current = '';
+    doneRef.current = false;
+    handleRef.current = startDictation({
+      lang: 'fr-FR',
+      onResult: (finalText, interimText) => {
+        heardRef.current = finalText;
+        interimRef.current = interimText;
+        setTyped(finalText);
+        setInterim(interimText);
+      },
+      // le navigateur coupe l'écoute après un long silence
+      onEnd: () => finishListening(),
+      onError: (code) => {
+        if (code === 'aborted') return;
+        setError(ERROR_MESSAGES[code] ?? `Erreur de reconnaissance vocale (${code}).`);
+      },
+    });
+  }, [finishListening]);
 
   useEffect(() => {
     if (!open) return;
     setPhase('listening');
-    setTyped('');
-    setPicked(Object.fromEntries(VOICE_SCRIPT.parsed.map(p => [p.id, true])));
+    setItems([]);
+    setPicked({});
 
+    if (live) {
+      startListening();
+      return () => {
+        doneRef.current = true;
+        handleRef.current?.cancel();
+        handleRef.current = null;
+      };
+    }
+
+    // Mode démo : transcription scriptée tapée progressivement
+    setError(null);
+    setInterim('');
+    setTyped('');
+    heardRef.current = VOICE_SCRIPT.heard;
     let i = 0;
     const full = VOICE_SCRIPT.heard;
     const typer = setInterval(() => {
@@ -95,12 +171,18 @@ export function VoiceSheet({ open, onClose, onConfirm }: Props) {
 
   useEffect(() => {
     if (phase !== 'thinking') return;
-    const t = setTimeout(() => setPhase('result'), 1300);
+    const t = setTimeout(() => {
+      const parsed = live ? parseDictation(heardRef.current) : VOICE_SCRIPT.parsed;
+      setItems(parsed);
+      setPicked(Object.fromEntries(parsed.map(p => [p.id, true])));
+      setPhase('result');
+    }, live ? 700 : 1300);
     return () => clearTimeout(t);
   }, [phase]);
 
   const toggle = (id: string) => setPicked(p => ({ ...p, [id]: !p[id] }));
   const confirmCount = Object.values(picked).filter(Boolean).length;
+  const transcript = interim ? `${typed} ${interim}`.trim() : typed;
 
   return (
     <Sheet open={open} onClose={onClose}>
@@ -127,15 +209,30 @@ export function VoiceSheet({ open, onClose, onConfirm }: Props) {
           {/* Waveform */}
           <View style={styles.waveform}>
             {Array.from({ length: 22 }).map((_, i) => (
-              <WaveBar key={i} index={i} playing={phase === 'listening'} />
+              <WaveBar key={i} index={i} playing={phase === 'listening' && !error} />
             ))}
           </View>
 
           {/* Transcription */}
           <Text style={styles.transcript}>
-            {typed}
-            {phase === 'listening' && <Text style={{ color: Colors.accent }}>|</Text>}
+            {transcript}
+            {phase === 'listening' && !error && <Text style={{ color: Colors.accent }}>|</Text>}
           </Text>
+
+          {error && (
+            <View style={{ alignItems: 'center', gap: 10 }}>
+              <Text style={styles.errorText}>{error}</Text>
+              {live && (
+                <Btn kind="soft" size="sm" onPress={startListening}>Réessayer</Btn>
+              )}
+            </View>
+          )}
+
+          {live && phase === 'listening' && !error && (
+            <Btn kind="primary" size="md" onPress={finishListening} disabled={!transcript}>
+              ✓ J'ai fini
+            </Btn>
+          )}
 
           {phase === 'thinking' && (
             <View style={styles.thinkingRow}>
@@ -152,13 +249,13 @@ export function VoiceSheet({ open, onClose, onConfirm }: Props) {
           <View style={styles.banner}>
             <Text style={{ fontSize: 15 }}>✨</Text>
             <Text style={styles.bannerText}>
-              J'ai reconnu {VOICE_SCRIPT.parsed.length} éléments — décoche ce que tu ne veux pas.
+              J'ai reconnu {items.length} élément{items.length > 1 ? 's' : ''} — décoche ce que tu ne veux pas.
             </Text>
           </View>
 
           {/* Items */}
           <View style={{ gap: 10, marginTop: 4 }}>
-            {VOICE_SCRIPT.parsed.map(p => (
+            {items.map(p => (
               <TouchableOpacity
                 key={p.id}
                 onPress={() => toggle(p.id)}
@@ -172,9 +269,11 @@ export function VoiceSheet({ open, onClose, onConfirm }: Props) {
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={styles.itemText}>{p.text}</Text>
                   <View style={styles.itemMeta}>
-                    <View style={styles.catChip}>
-                      <Text style={styles.catText}>{p.cat}</Text>
-                    </View>
+                    {!!p.cat && (
+                      <View style={styles.catChip}>
+                        <Text style={styles.catText}>{p.cat}</Text>
+                      </View>
+                    )}
                     {p.meta && (
                       <Text style={styles.metaText}>🕐 {p.meta}</Text>
                     )}
@@ -187,7 +286,8 @@ export function VoiceSheet({ open, onClose, onConfirm }: Props) {
           <Btn
             kind="primary"
             size="lg"
-            onPress={() => onConfirm(VOICE_SCRIPT.parsed.filter(p => picked[p.id]))}
+            onPress={() => onConfirm(items.filter(p => picked[p.id]))}
+            disabled={confirmCount === 0}
             style={{ marginTop: 16 }}
           >
             {`+ Ajouter ${confirmCount} élément${confirmCount > 1 ? 's' : ''}`}
@@ -213,6 +313,8 @@ const styles = StyleSheet.create({
   wavebar:  { width: 3.5, height: 22, borderRadius: 99, backgroundColor: Colors.accent, opacity: 0.85 },
 
   transcript:   { fontSize: 16, lineHeight: 24, textAlign: 'center', color: Colors.ink2, minHeight: 70, paddingHorizontal: 6 },
+
+  errorText:    { fontSize: 13.5, fontWeight: '600', color: Colors.dangerInk, textAlign: 'center', paddingHorizontal: 10 },
 
   thinkingRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   dotsRow:      { flexDirection: 'row', gap: 4, alignItems: 'center' },
