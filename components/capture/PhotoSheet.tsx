@@ -139,7 +139,7 @@ export function PhotoSheet({ open, onClose, onConfirm }: Props) {
           <Text style={styles.scanStatusText}>L'assistant repère ce qui manque…</Text>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 0 }}>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
           {/* Banner */}
           <View style={styles.banner}>
             <Text style={{ fontSize: 15 }}>✨</Text>

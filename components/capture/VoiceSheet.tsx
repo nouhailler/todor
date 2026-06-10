@@ -147,7 +147,7 @@ export function VoiceSheet({ open, onClose, onConfirm }: Props) {
       )}
 
       {phase === 'result' && (
-        <ScrollView style={{ flex: 0 }} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flexGrow: 0 }} showsVerticalScrollIndicator={false}>
           {/* Banner */}
           <View style={styles.banner}>
             <Text style={{ fontSize: 15 }}>✨</Text>

@@ -70,7 +70,8 @@ export function NewProjectSheet({ open, onClose, onConfirm }: Props) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 0 }} keyboardShouldPersistTaps="handled">
+      {/* flex: 0 devient flex-basis 0% sur react-native-web → hauteur 0 et contenu invisible */}
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
 
         {/* Kind toggle */}
         <View style={styles.kindRow}>
