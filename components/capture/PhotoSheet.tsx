@@ -1,9 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, ScrollView, Image, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Sheet } from '../ui/Sheet';
 import { Btn } from '../ui/Btn';
 import { Colors, Radius, Space } from '../../constants/tokens';
+import { useVisionProvider, analyzePhoto, type PhotoItem } from '../../lib/vision';
 
+export type { PhotoItem };
+
+// Suggestions de démo utilisées quand aucune clé API n'est configurée (.env)
 const PHOTO_SUGGEST = [
   { id: 'p1', text: 'Lait',         detail: 'presque vide',  on: true  },
   { id: 'p2', text: 'Œufs',         detail: '2 restants',    on: true  },
@@ -12,9 +17,9 @@ const PHOTO_SUGGEST = [
   { id: 'p5', text: 'Beurre',       detail: 'entamé',        on: false },
 ];
 
-type Phase = 'scan' | 'result';
+type Phase = 'pick' | 'scan' | 'result';
 
-export interface PhotoItem { text: string; cat: string }
+interface Suggestion { id: string; text: string; detail?: string; on: boolean }
 
 interface Props {
   open: boolean;
@@ -22,7 +27,7 @@ interface Props {
   onConfirm: (items: PhotoItem[]) => void;
 }
 
-// Fridge shelf row of colored blocks
+// Fridge shelf row of colored blocks (démo sans clé API)
 function ShelfRow({ row }: { row: number }) {
   const colors = ['#e9e2d3', '#cd6b58', '#e4c074', '#8fb0a0'];
   return (
@@ -93,16 +98,73 @@ function ThinkingDots() {
 }
 
 export function PhotoSheet({ open, onClose, onConfirm }: Props) {
-  const [phase, setPhase] = useState<Phase>('scan');
+  const live = useVisionProvider() !== null;
+
+  const [phase, setPhase] = useState<Phase>('pick');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [picked, setPicked] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    setPhotoUri(null);
+    setSuggestions([]);
+    setPicked({});
+    setError(null);
+
+    if (live) {
+      setPhase('pick');
+      return;
+    }
+
+    // Mode démo : frigo factice + scan scripté
     setPhase('scan');
-    setPicked(Object.fromEntries(PHOTO_SUGGEST.map(s => [s.id, s.on])));
-    const t = setTimeout(() => setPhase('result'), 2200);
+    const t = setTimeout(() => {
+      setSuggestions(PHOTO_SUGGEST);
+      setPicked(Object.fromEntries(PHOTO_SUGGEST.map(s => [s.id, s.on])));
+      setPhase('result');
+    }, 2200);
     return () => clearTimeout(t);
   }, [open]);
+
+  const scan = async (base64: string, mime: string | undefined, uri: string) => {
+    setError(null);
+    setPhotoUri(uri);
+    setPhase('scan');
+    try {
+      const items = await analyzePhoto(base64, mime);
+      if (items.length === 0) {
+        setError("Aucun article reconnu sur cette photo — réessaie avec un autre cadrage.");
+        setPhase('pick');
+        return;
+      }
+      const sugg = items.map((it, i) => ({ id: `s${i}`, text: it.text, detail: it.detail, on: true }));
+      setSuggestions(sugg);
+      setPicked(Object.fromEntries(sugg.map(s => [s.id, true])));
+      setPhase('result');
+    } catch (e) {
+      setError("L'analyse a échoué — vérifie ta connexion et ta clé API, puis réessaie.");
+      setPhase('pick');
+    }
+  };
+
+  const pickImage = async (fromCamera: boolean) => {
+    setError(null);
+    if (fromCamera) {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        setError('Accès à la caméra refusé.');
+        return;
+      }
+    }
+    const result = fromCamera
+      ? await ImagePicker.launchCameraAsync({ base64: true, quality: 0.6 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', base64: true, quality: 0.6 });
+    if (result.canceled || !result.assets[0]?.base64) return;
+    const asset = result.assets[0];
+    await scan(asset.base64!, asset.mimeType, asset.uri);
+  };
 
   const toggle = (id: string) => setPicked(p => ({ ...p, [id]: !p[id] }));
   const count = Object.values(picked).filter(Boolean).length;
@@ -112,45 +174,69 @@ export function PhotoSheet({ open, onClose, onConfirm }: Props) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
-          {phase === 'scan' ? 'Analyse de la photo' : 'À racheter'}
+          {phase === 'pick' ? 'Scanner une photo' : phase === 'scan' ? 'Analyse de la photo' : 'À racheter'}
         </Text>
         <TouchableOpacity onPress={onClose} style={styles.closeBtn} activeOpacity={0.7}>
           <Text style={{ fontSize: 18, color: Colors.ink2 }}>✕</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Fake fridge photo */}
-      <View style={styles.photo}>
-        <View style={styles.photoContent}>
-          {[0, 1, 2].map(r => <ShelfRow key={r} row={r} />)}
+      {/* Choix de la source (mode réel) */}
+      {phase === 'pick' && (
+        <View style={styles.pickWrap}>
+          <Text style={styles.pickHint}>
+            Photographie ton frigo, un placard ou une liste manuscrite — l'assistant en extrait les articles.
+          </Text>
+          {error && <Text style={styles.errorText}>{error}</Text>}
+          {Platform.OS !== 'web' && (
+            <Btn kind="primary" size="lg" onPress={() => pickImage(true)}>
+              📷 Prendre une photo
+            </Btn>
+          )}
+          <Btn kind={Platform.OS === 'web' ? 'primary' : 'soft'} size="lg" onPress={() => pickImage(false)}>
+            🖼 Choisir une image
+          </Btn>
         </View>
-        {/* Label overlay */}
-        <View style={styles.photoLabel}>
-          <Text style={styles.photoLabelText}>📷 Frigo · maintenant</Text>
-        </View>
-        {/* Scan effect */}
-        <ScanLine active={phase === 'scan'} />
-        {phase === 'scan' && <View style={styles.scanOverlay} />}
-      </View>
+      )}
 
-      {phase === 'scan' ? (
+      {/* Photo (réelle ou frigo factice en démo) */}
+      {phase !== 'pick' && (
+        <View style={styles.photo}>
+          {photoUri ? (
+            <Image source={{ uri: photoUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          ) : (
+            <View style={styles.photoContent}>
+              {[0, 1, 2].map(r => <ShelfRow key={r} row={r} />)}
+            </View>
+          )}
+          <View style={styles.photoLabel}>
+            <Text style={styles.photoLabelText}>📷 {photoUri ? 'Ta photo' : 'Frigo · maintenant'}</Text>
+          </View>
+          <ScanLine active={phase === 'scan'} />
+          {phase === 'scan' && <View style={styles.scanOverlay} />}
+        </View>
+      )}
+
+      {phase === 'scan' && (
         <View style={styles.scanStatus}>
           <ThinkingDots />
           <Text style={styles.scanStatusText}>L'assistant repère ce qui manque…</Text>
         </View>
-      ) : (
+      )}
+
+      {phase === 'result' && (
         <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }}>
           {/* Banner */}
           <View style={styles.banner}>
             <Text style={{ fontSize: 15 }}>✨</Text>
             <Text style={styles.bannerText}>
-              {PHOTO_SUGGEST.length} produits détectés comme bas ou vides.
+              {suggestions.length} produit{suggestions.length > 1 ? 's' : ''} détecté{suggestions.length > 1 ? 's' : ''} — décoche ce que tu ne veux pas.
             </Text>
           </View>
 
           {/* Pill toggles */}
           <View style={styles.pillsRow}>
-            {PHOTO_SUGGEST.map(s => (
+            {suggestions.map(s => (
               <TouchableOpacity
                 key={s.id}
                 onPress={() => toggle(s.id)}
@@ -166,9 +252,11 @@ export function PhotoSheet({ open, onClose, onConfirm }: Props) {
                 <Text style={[styles.pillText, picked[s.id] && { color: '#fff' }]}>
                   {s.text}
                 </Text>
-                <Text style={[styles.pillDetail, picked[s.id] && { color: 'rgba(255,255,255,0.75)' }]}>
-                  · {s.detail}
-                </Text>
+                {!!s.detail && (
+                  <Text style={[styles.pillDetail, picked[s.id] && { color: 'rgba(255,255,255,0.75)' }]}>
+                    · {s.detail}
+                  </Text>
+                )}
               </TouchableOpacity>
             ))}
           </View>
@@ -176,7 +264,8 @@ export function PhotoSheet({ open, onClose, onConfirm }: Props) {
           <Btn
             kind="primary"
             size="lg"
-            onPress={() => onConfirm(PHOTO_SUGGEST.filter(s => picked[s.id]).map(s => ({ text: s.text, cat: 'Frais' })))}
+            onPress={() => onConfirm(suggestions.filter(s => picked[s.id]).map(s => ({ text: s.text, cat: 'Frais' })))}
+            disabled={count === 0}
             style={{ marginTop: 16 }}
           >
             {`+ Ajouter ${count} article${count > 1 ? 's' : ''}`}
@@ -191,6 +280,10 @@ const styles = StyleSheet.create({
   header:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   headerTitle: { fontSize: 19, fontWeight: '800', color: Colors.ink },
   closeBtn:    { width: 34, height: 34, borderRadius: 10, backgroundColor: Colors.surface2, borderWidth: 1, borderColor: Colors.line, alignItems: 'center', justifyContent: 'center' },
+
+  pickWrap:  { gap: 12, paddingVertical: 6, paddingBottom: 10 },
+  pickHint:  { fontSize: 14, lineHeight: 21, color: Colors.ink2, textAlign: 'center', paddingHorizontal: 8, marginBottom: 4 },
+  errorText: { fontSize: 13.5, fontWeight: '600', color: Colors.dangerInk, textAlign: 'center', paddingHorizontal: 10 },
 
   photo:        { height: 180, borderRadius: 18, overflow: 'hidden', marginBottom: 14, backgroundColor: '#dfe7e3' },
   photoContent: { flex: 1, justifyContent: 'space-evenly', padding: 14, paddingHorizontal: 18 },

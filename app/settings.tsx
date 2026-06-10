@@ -9,6 +9,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { Colors, Radius, Space, PALETTES, FontFamily } from '../constants/tokens';
 import type { PaletteName } from '../constants/tokens';
 import { exportJSON, exportCSV, exportPDF, parseImport } from '../lib/importExport';
+import { useVisionProvider } from '../lib/vision';
+import { fetchVisionModels, testOpenRouter, type VisionModel, type TestResult } from '../lib/openrouter';
 import { MEMBERS } from '../constants/data';
 import { AI_JSON_SAMPLE } from '../constants/data';
 import { Avatar } from '../components/ui/Avatar';
@@ -129,17 +131,163 @@ function ImportSheet({ open, onClose, onToast }: { open: boolean; onClose: () =>
   );
 }
 
+// ── Sheet de config IA (OpenRouter) ────────────────────────────
+function AISheet({ open, onClose, onToast }: { open: boolean; onClose: () => void; onToast: (m: string) => void }) {
+  const { openRouterKey, openRouterModel, setOpenRouter } = useSettingsStore();
+  const [key, setKey] = useState(openRouterKey);
+  const [model, setModel] = useState(openRouterModel);
+  const [models, setModels] = useState<VisionModel[] | null>(null);
+  const [filter, setFilter] = useState('');
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [test, setTest] = useState<TestResult | null>(null);
+
+  React.useEffect(() => {
+    if (open) {
+      setKey(openRouterKey); setModel(openRouterModel);
+      setModels(null); setFilter(''); setTest(null);
+    }
+  }, [open]);
+
+  const loadModels = async () => {
+    setLoadingModels(true); setTest(null);
+    try {
+      setModels(await fetchVisionModels(key.trim()));
+    } catch (e: any) {
+      setTest({ ok: false, message: `Impossible de charger les modèles : ${e?.message ?? 'erreur'}` });
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  const runTest = async () => {
+    setTesting(true); setTest(null);
+    setTest(await testOpenRouter(key.trim(), model.trim()));
+    setTesting(false);
+  };
+
+  const save = () => {
+    setOpenRouter(key.trim(), model.trim());
+    onToast(key.trim() ? '📷 Scan photo via OpenRouter activé' : 'Clé OpenRouter retirée');
+    onClose();
+  };
+
+  const filtered = models?.filter(m =>
+    m.id.toLowerCase().includes(filter.toLowerCase()) || m.name.toLowerCase().includes(filter.toLowerCase())
+  );
+
+  return (
+    <Sheet open={open} onClose={onClose}>
+      <Text style={styles.sheetTitle}>Scan photo — OpenRouter</Text>
+      <ScrollView showsVerticalScrollIndicator={false} style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
+        <View style={styles.importHint}>
+          <Text style={{ fontSize: 15 }}>🔑</Text>
+          <Text style={styles.importHintText}>
+            Crée une clé sur openrouter.ai/keys, choisis un modèle vision, teste, puis enregistre.
+            La clé reste sur cet appareil. Laisse vide pour désactiver.
+          </Text>
+        </View>
+
+        <Text style={styles.fieldLabel}>Clé API</Text>
+        <TextInput
+          value={key}
+          onChangeText={t => { setKey(t); setTest(null); }}
+          placeholder="sk-or-…"
+          placeholderTextColor={Colors.faint}
+          autoCapitalize="none"
+          autoCorrect={false}
+          secureTextEntry
+          style={styles.fieldInput}
+        />
+
+        <Text style={styles.fieldLabel}>Modèle (vision)</Text>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <TextInput
+            value={model}
+            onChangeText={t => { setModel(t); setTest(null); }}
+            placeholder="ex. anthropic/claude-haiku-4.5"
+            placeholderTextColor={Colors.faint}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[styles.fieldInput, { flex: 1, marginBottom: 0 }]}
+          />
+          <Btn kind="soft" size="sm" onPress={loadModels} disabled={!key.trim() || loadingModels}>
+            {loadingModels ? '…' : 'Liste'}
+          </Btn>
+        </View>
+
+        {filtered && (
+          <View style={styles.modelListBox}>
+            <TextInput
+              value={filter}
+              onChangeText={setFilter}
+              placeholder={`Filtrer ${models!.length} modèles vision…`}
+              placeholderTextColor={Colors.faint}
+              autoCapitalize="none"
+              style={styles.modelFilter}
+            />
+            <ScrollView style={{ maxHeight: 170 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              {filtered.slice(0, 60).map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  onPress={() => { setModel(m.id); setTest(null); }}
+                  style={styles.modelRow}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flex: 1, gap: 1 }}>
+                    <Text style={styles.modelId} numberOfLines={1}>{m.id}</Text>
+                    <Text style={styles.modelName} numberOfLines={1}>{m.name}</Text>
+                  </View>
+                  {model === m.id && <Text style={{ color: Colors.accent, fontWeight: '700' }}>✓</Text>}
+                </TouchableOpacity>
+              ))}
+              {filtered.length === 0 && <Text style={styles.modelEmpty}>Aucun modèle ne correspond.</Text>}
+            </ScrollView>
+          </View>
+        )}
+
+        {test && (
+          <View style={[styles.errorBox, test.ok && { backgroundColor: Colors.accentSoft }]}>
+            <Text style={{ fontSize: 15 }}>{test.ok ? '✅' : '⚠'}</Text>
+            <Text style={[styles.errorText, test.ok && { color: Colors.accentInk }]}>{test.message}</Text>
+          </View>
+        )}
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+          <View style={{ flex: 1 }}>
+            <Btn kind="dark" size="lg" onPress={runTest} disabled={testing || !key.trim() || !model.trim()}>
+              {testing ? 'Test en cours…' : '🧪 Tester'}
+            </Btn>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Btn kind="primary" size="lg" onPress={save}>
+              Enregistrer
+            </Btn>
+          </View>
+        </View>
+      </ScrollView>
+    </Sheet>
+  );
+}
+
 // ── Main screen ────────────────────────────────────────────────
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { tasks } = useTaskStore();
 
-  const { palette, setPalette } = useSettingsStore();
+  const { palette, setPalette, openRouterModel } = useSettingsStore();
+  const visionProvider = useVisionProvider();
   const [notif, setNotif] = useState({ push: true, email: true, overdue: true, digest: true, multiple: true });
   const [autoSync, setAutoSync] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  const visionSub =
+    visionProvider === 'openrouter' ? `OpenRouter · ${openRouterModel}`
+    : visionProvider === 'anthropic' ? 'API Claude (clé .env)'
+    : 'Non configuré — mode démo';
 
   const toggleNotif = (k: keyof typeof notif) => setNotif(n => ({ ...n, [k]: !n[k] }));
 
@@ -235,6 +383,18 @@ export default function SettingsScreen() {
           />
         </Section>
 
+        {/* Assistant IA */}
+        <Section title="Assistant IA">
+          <SettingRow
+            emoji="📷"
+            iconBg={Colors.berry}
+            title="Scan photo (vision)"
+            sub={visionSub}
+            onPress={() => setAiOpen(true)}
+            last
+          />
+        </Section>
+
         {/* Import / Export */}
         <Section title="Import & export">
           <SettingRow emoji="✨" iconBg={Colors.accent} title="Importer des tâches" sub="Coller du JSON (généré par Claude)" onPress={() => setImportOpen(true)} />
@@ -248,6 +408,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <ImportSheet open={importOpen} onClose={() => setImportOpen(false)} onToast={setToast} />
+      <AISheet open={aiOpen} onClose={() => setAiOpen(false)} onToast={setToast} />
       <Toast message={toast} onHide={() => setToast(null)} />
     </View>
   );
@@ -292,6 +453,16 @@ const styles = StyleSheet.create({
   previewRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   previewText: { flex: 1, fontSize: 13.5, fontWeight: '600', color: Colors.ink },
   previewProject: { fontSize: 11.5, color: Colors.muted },
+
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: Colors.muted, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 7, marginTop: 4 },
+  fieldInput: { borderWidth: 1, borderColor: Colors.lineStrong, borderRadius: 12, paddingHorizontal: 13, paddingVertical: 11, fontSize: 14.5, color: Colors.ink, backgroundColor: Colors.surface, marginBottom: 14 },
+
+  modelListBox: { borderWidth: 1, borderColor: Colors.line, borderRadius: 12, marginTop: 10, backgroundColor: Colors.surface2, overflow: 'hidden' },
+  modelFilter:  { paddingHorizontal: 12, paddingVertical: 9, fontSize: 13.5, color: Colors.ink, borderBottomWidth: 1, borderBottomColor: Colors.line, backgroundColor: Colors.surface },
+  modelRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: Colors.line },
+  modelId:      { fontSize: 13, fontWeight: '700', color: Colors.ink },
+  modelName:    { fontSize: 11.5, color: Colors.muted },
+  modelEmpty:   { fontSize: 13, color: Colors.muted, textAlign: 'center', paddingVertical: 14 },
 
   footer: { textAlign: 'center', fontSize: 12, color: Colors.faint, paddingVertical: 24 },
 });

@@ -1,6 +1,6 @@
 # CONTEXT — todor : état du projet
 
-> **Dernière mise à jour : 2026-06-10.** Ce fichier est le document de suivi du projet : ce qui est fait, comment c'est organisé, ce qui reste.
+> **Dernière mise à jour : 2026-06-10 (capture voix + photo réelles).** Ce fichier est le document de suivi du projet : ce qui est fait, comment c'est organisé, ce qui reste.
 > Le prototype interactif de référence est dans `../design_handoff_todor/` — ouvrir `todor.html` dans un navigateur.
 > Historique : ce fichier était initialement le brief d'implémentation (session du 2026-06-08) ; les 4 phases prévues sont implémentées depuis le 2026-06-09.
 
@@ -69,10 +69,14 @@ Logique métier en place : récurrence (`toggleDone` crée l'occurrence suivante
 
 ## 5. Ce qui reste / limitations connues
 
-- **Tout est local et simulé** : pas de backend, pas de vrai partage multi-utilisateurs (les membres sont des données seed)
+- **Données locales** : pas de backend, pas de vrai partage multi-utilisateurs (les membres sont des données seed)
 - **Notifications** : toggles UI seulement — `expo-notifications` n'est pas installé, aucun rappel réel n'est programmé
-- **Assistant IA** : réponses scriptées, pas d'appel à une vraie API (Claude)
-- **Capture voix/photo** : simulations (transcription et scan factices) ; `expo-image-picker` est installé mais la vraie capture n'est pas branchée
+- **Assistant IA (onglet)** : réponses scriptées, pas encore branché sur l'API Claude
+- **Capture voix** : réelle **sur web** (Web Speech API, Chrome/Edge, fr-FR) — `lib/speech.web.ts` + parseur `lib/dictation.ts` ; sur mobile natif la simulation reste (vraie reco = dev build ou API cloud)
+- **Scan photo** : réel sur toutes les plateformes — `expo-image-picker` (caméra/galerie) + vision IA. Deux fournisseurs (`lib/vision.ts` route automatiquement) :
+  1. **OpenRouter** (prioritaire) — clé + modèle configurables **dans l'app** : Réglages → Assistant IA → "Scan photo (vision)" (liste des modèles vision chargée en direct, bouton 🧪 Tester, persistance AsyncStorage via `settingsStore`). Client : `lib/openrouter.ts`.
+  2. **API Claude** — `EXPO_PUBLIC_ANTHROPIC_API_KEY` dans `.env` (cf. `.env.example`), modèle `claude-opus-4-8`, sortie JSON structurée. Redémarrer avec `expo start -c` après changement de `.env`.
+  Sans aucune clé → repli sur la simulation. ⚠️ clés côté client : OK usage perso, pas pour distribuer.
 - **Pas de tests** automatisés
 - **Pas vérifié sur device réel** récent — valider gestures, safe areas et perfs des animations sur iOS/Android
 
