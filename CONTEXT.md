@@ -71,7 +71,7 @@ Logique métier en place : récurrence (`toggleDone` crée l'occurrence suivante
 
 - **Données locales** : pas de backend, pas de vrai partage multi-utilisateurs (les membres sont des données seed)
 - **Notifications** : toggles UI seulement — `expo-notifications` n'est pas installé, aucun rappel réel n'est programmé
-- **Assistant IA (onglet)** : réponses scriptées, pas encore branché sur l'API Claude
+- **Assistant IA (onglet)** : branché sur **OpenRouter** (`lib/assistant.ts`) — même clé/modèle que le scan photo (Réglages → Assistant IA) ; contexte réel des listes injecté dans le prompt système, historique de conversation, suggestions d'ajout via bloc `<add>` parsé vers la carte "Tout ajouter". Sans clé → réponses scriptées (mode démo).
 - **Capture voix** : réelle **sur web** (Web Speech API, Chrome/Edge, fr-FR) — `lib/speech.web.ts` + parseur `lib/dictation.ts` ; sur mobile natif la simulation reste (vraie reco = dev build ou API cloud)
 - **Scan photo** : réel sur toutes les plateformes — `expo-image-picker` (caméra/galerie) + vision IA. Deux fournisseurs (`lib/vision.ts` route automatiquement) :
   1. **OpenRouter** (prioritaire) — clé + modèle configurables **dans l'app** : Réglages → Assistant IA → "Scan photo (vision)" (liste des modèles vision chargée en direct, bouton 🧪 Tester, persistance AsyncStorage via `settingsStore`). Client : `lib/openrouter.ts`.

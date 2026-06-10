@@ -36,15 +36,22 @@ export async function fetchVisionModels(key: string): Promise<VisionModel[]> {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-async function chat(key: string, model: string, content: unknown[], maxTokens: number) {
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string | unknown[];
+}
+
+/** Appel chat/completions générique (texte ou multimodal). Retourne le texte de la réponse. */
+export async function chatCompletion(
+  key: string,
+  model: string,
+  messages: ChatMessage[],
+  maxTokens: number
+): Promise<string> {
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
     headers: authHeaders(key),
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content }],
-    }),
+    body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
   });
   const json = await res.json().catch(() => null);
   if (!res.ok || json?.error) {
@@ -54,6 +61,10 @@ async function chat(key: string, model: string, content: unknown[], maxTokens: n
   const text: string | undefined = json?.choices?.[0]?.message?.content;
   if (!text) throw new Error('réponse vide');
   return text;
+}
+
+function chat(key: string, model: string, content: unknown[], maxTokens: number) {
+  return chatCompletion(key, model, [{ role: 'user', content }], maxTokens);
 }
 
 export interface TestResult {

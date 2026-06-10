@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTaskStore } from '../store/taskStore';
+import { useSettingsStore } from '../store/settingsStore';
+import { askAssistant } from '../lib/assistant';
 import { Colors, Radius, Space, FontFamily } from '../constants/tokens';
 
 const AI_SUGGESTIONS = [
@@ -71,6 +73,9 @@ function TypingDots() {
 export default function AIScreen() {
   const insets = useSafeAreaInsets();
   const { addTask } = useTaskStore();
+  const openRouterKey = useSettingsStore(s => s.openRouterKey);
+  const openRouterModel = useSettingsStore(s => s.openRouterModel);
+  const live = !!(openRouterKey.trim() && openRouterModel.trim());
   const scrollRef = useRef<ScrollView>(null);
 
   const [msgs, setMsgs] = useState<Msg[]>([
@@ -84,13 +89,35 @@ export default function AIScreen() {
 
   const scrollToBottom = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
 
-  const ask = (q: string) => {
-    if (!q.trim()) return;
-    const ans = AI_ANSWERS[q] ?? DEFAULT_ANSWER;
+  const ask = async (q: string) => {
+    if (!q.trim() || typing) return;
     setMsgs(m => [...m, { who: 'me', text: q }]);
     setInput('');
     setTyping(true);
     scrollToBottom();
+
+    if (live) {
+      const history = [...msgs, { who: 'me' as const, text: q }]
+        .filter(m => m.text.trim().length > 0)
+        .map(m => ({ who: m.who, text: m.text }));
+      try {
+        const reply = await askAssistant(history);
+        const key = 'k' + Date.now();
+        setMsgs(m => [...m, { who: 'ai', text: reply.text, add: reply.add, key }]);
+      } catch (e: any) {
+        setMsgs(m => [...m, {
+          who: 'ai',
+          text: `⚠ Je n'arrive pas à joindre le modèle (${e?.message ?? 'erreur'}). Vérifie ta clé OpenRouter dans Réglages › Assistant IA.`,
+        }]);
+      } finally {
+        setTyping(false);
+        scrollToBottom();
+      }
+      return;
+    }
+
+    // Mode démo : réponses scriptées
+    const ans = AI_ANSWERS[q] ?? DEFAULT_ANSWER;
     setTimeout(() => {
       setTyping(false);
       const key = 'k' + Date.now();
@@ -118,8 +145,10 @@ export default function AIScreen() {
         <View style={{ gap: 3 }}>
           <Text style={styles.headerTitle}>Assistant</Text>
           <View style={styles.headerSub}>
-            <View style={styles.onlineDot} />
-            <Text style={styles.headerSubText}>Connecté à tes 4 listes</Text>
+            <View style={[styles.onlineDot, !live && { backgroundColor: Colors.faint }]} />
+            <Text style={styles.headerSubText} numberOfLines={1}>
+              {live ? openRouterModel : 'Mode démo — clé OpenRouter dans Réglages'}
+            </Text>
           </View>
         </View>
       </View>
